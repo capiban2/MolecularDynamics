@@ -3,3 +3,5 @@ build
 Makefile
 include/Eigen
 include/nlohmann
+CMakePresets.json
+CMakeUserPresets.json
