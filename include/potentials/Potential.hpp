@@ -13,8 +13,8 @@ class Potential {
 public:
   enum class Type { LJ, EAM_ALLOY, EAM_PURE };
   virtual ~Potential() = default;
-  virtual void loadParameters(int f_type, int s_type,
-                              const std::string &path) = 0;
+  virtual void loadParameters(int f_type, const std::string &path,
+                              int s_type = -1) = 0;
   virtual T computeEnergy(const Particle<T> &p1,
                           const Particle<T> &p2) const noexcept = 0;
   virtual Vector3x<T> computeForce(const Particle<T> &p1,

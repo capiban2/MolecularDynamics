@@ -1,5 +1,6 @@
 #include <CellList.hpp>
 #include <DomainDecomposition.hpp>
+#include <Eigen/Dense>
 #include <IMDManager.hpp>
 #include <Utility.hpp>
 #include <VerletList.hpp>
@@ -24,9 +25,10 @@ class MDManager : public IMDManager<T> {
   Vector3x<T> m_global_lo, m_global_hi;
   int m_ghost_index_first;
   std::vector<Particle<T>> m_particles;
-  std::vector<T> m_electron_density;
   Vector3d m_cell_size;
   T m_cutoff, m_skin;
+
+  Eigen::Matrix3<T> m_distances;
 
   std::string m_path_to_config;
   void calculateInternalForces();
@@ -58,7 +60,8 @@ public:
     m_domain_decomposition->initCart(comm, global_lo, global_hi);
   }
 
-  void setPotential(int f_type, int s_type, typename Potential<T>::Type &type) {
+  void setPotential(int f_type, typename Potential<T>::Type &type,
+                    int s_type = -1) {
     static int potential_set_count = 0;
     Potential<T> new_potential;
     switch (type) {
@@ -73,7 +76,7 @@ public:
     }
     }
 
-    new_potential->loadParameters(m_path_to_config);
+    new_potential->loadParameters(f_type, m_path_to_config, s_type);
 
     /*
     //HINT this thing seems redundant
@@ -82,7 +85,7 @@ public:
     m_potentials[std::min(f_type,s_type)][std::max(f_type,s_type)]
     */
 
-    if (f_type != s_type) {
+    if (s_type != -1) {
       m_potentials[potential_set_count][potential_set_count + 1] =
           new_potential;
       m_potentials[potential_set_count + 1][potential_set_count] =
@@ -93,6 +96,7 @@ public:
       potential_set_count++;
     }
   }
+
   void createCellLists(std::vector<Particle<T>> &all_particles,
                        Vector3d cell_size) {
     redistributeParticles(all_particles);
@@ -106,8 +110,6 @@ public:
                        m_cutoff + m_skin);
     m_verlet_list = std::make_unique<VerletList<T>>(m_cutoff, m_skin);
     m_verlet_list->build(m_particles, m_cell_list, m_ghost_index_first);
-    m_electron_density.clear();
-    m_electron_density.resize(m_ghost_index_first);
   }
 
   void evolve();
