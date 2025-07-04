@@ -14,11 +14,12 @@ public:
   enum class Type { LJ, EAM_ALLOY, EAM_PURE };
   virtual ~Potential() = default;
   virtual void loadParameters(int f_type, const std::string &path,
-                              int s_type = -1) = 0;
+                              int s_type = -1) noexcept(false) = 0;
   virtual T computeEnergy(const Particle<T> &p1,
                           const Particle<T> &p2) const noexcept = 0;
-  virtual Vector3x<T> computeForce(const Particle<T> &p1,
-                                   const Particle<T> &p2) const noexcept = 0;
+  virtual Vector3x<T>
+  computeForce(const Particle<T> &p1, const Particle<T> &p2,
+               const std::pair<int, int> &indx = {}) const noexcept = 0;
 
   // HINT: necessary for Potentials EAM-like where before forces can be
   // calculated electron density stuff should be calculated
