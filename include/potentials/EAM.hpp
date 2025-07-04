@@ -229,14 +229,6 @@ protected:
                           return 0.5 * r_cut - 0.5 * r_cut * x_k;
                         }) |
                         to<std::vector<T>>();
-    m_precomputed_pair =
-        m_chebyshev_nodes | std::views::transform([this](const T &_node) {
-          return this->calculatePairPotential(_node);
-        });
-    m_precomputed_pair_der =
-        m_chebyshev_nodes | std::views::transform([this](const T &_node) {
-          return this->calculatePairPotentialDer(_node);
-        });
   }
 
   // TODO: verify all these cubd sqrd
