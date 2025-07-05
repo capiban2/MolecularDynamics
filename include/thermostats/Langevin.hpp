@@ -5,6 +5,8 @@ class LangevinThermostat final : public Thermostat<T> {
 
 public:
   // TODO: add necessary parameters
-  LangevinThermostat(IMDManager<T> *mdm) : Thermostat<T>(mdm) {}
+  LangevinThermostat(IMDManager<T> *mdm,
+                     const std::vector<std::pair<int, T>> &_preserve_temp)
+      : Thermostat<T>(mdm, _preserve_temp) {}
   virtual void applyThermostat() override;
 };

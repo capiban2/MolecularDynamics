@@ -3,14 +3,31 @@
 #include <Utility.hpp>
 #include <memory>
 #include <type_traits>
+#include <utility>
 template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
 class Thermostat {
 protected:
   std::unique_ptr<IMDManager<T>> m_parent;
 
+  /*
+HINT: this vector contains pairs (int, T),
+where int is a count if iterations, and
+T is the temperature that needs to be preserve.
+ Every iteration this counter decreases, then, if it is zero
+next pair is going to be in work.
+ If no pair left, then last pair's temperature is a temperature, that will
+ be preserved all the way to the end of the modelling
+For doing so, if no pairs left and counter is a zero, then counter gets
+increase to some big arbitary value.
+*/
+
+  std::vector<std::pair<int, T>> m_time_nd_temp_to_preserve;
+
 public:
   enum class Type { Unitary, Andersen, Berendsen, Langevin, NoseHoover };
-  Thermostat(IMDManager<T> *mdm) : m_parent(mdm) {}
+  Thermostat(IMDManager<T> *mdm,
+             const std::vector<std::pair<int, T>> &_preserve_temp)
+      : m_parent(mdm), m_time_nd_temp_to_preserve(_preserve_temp) {}
   virtual void applyThermostat() = 0;
 };
 template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>

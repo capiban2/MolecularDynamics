@@ -6,6 +6,8 @@ class NoseHooverThermostat final : public Thermostat<T> {
 
 public:
   // TODO: add necessary parameters
-  NoseHooverThermostat(IMDManager<T> *mdm) : Thermostat<T>(mdm) {}
+  NoseHooverThermostat(IMDManager<T> *mdm,
+                       const std::vector<std::pair<int, T>> &_preserve_temp)
+      : Thermostat<T>(mdm, _preserve_temp) {}
   virtual void applyThermostat() override;
 };

@@ -5,6 +5,8 @@ class AndersenThermostat final : public Thermostat<T> {
 
 public:
   // TODO: add necessary parameters
-  AndersenThermostat(IMDManager<T> *mdm) : Thermostat<T>(mdm) {}
+  AndersenThermostat(IMDManager<T> *mdm,
+                     const std::vector<std::pair<int, T>> &_preserve_temp)
+      : Thermostat<T>(mdm, _preserve_temp) {}
   virtual void applyThermostat() override;
 };
