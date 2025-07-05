@@ -5,7 +5,7 @@
 #include <mpi.h>
 #include <type_traits>
 #include <vector>
-namespace Positions {
+namespace Position {
 int countInFCC(const Vector3i &unit_sizes) {
   int x = unit_sizes.x, y = unit_sizes.y, z = unit_sizes.z;
   return
@@ -248,4 +248,4 @@ void movePositions(std::vector<Vector3x<T>> &holder, double x_padding,
   }
 }
 
-}; // namespace Positions
+}; // namespace Position
