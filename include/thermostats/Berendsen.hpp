@@ -1,7 +1,7 @@
 #pragma once
 #include "Thermostat.hpp"
 
-template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
 class BerendsenThermostat final : public Thermostat<T> {
   T m_ratio;
 
