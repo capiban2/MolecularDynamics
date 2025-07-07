@@ -26,6 +26,9 @@ public:
                const std::pair<int, int> &indx = {}) const noexcept = 0;
 
   T getCutoffRadius() const noexcept { return m_rcut; }
+
+  // HINT: defined here just for not doing dynamic cast every time, dunno
+  virtual T calculateElectronDensity(const T &dist, int local_idx) const {}
 };
 
 template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>,

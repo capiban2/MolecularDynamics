@@ -7,10 +7,13 @@ template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
 class Barostat {
 protected:
   std::unique_ptr<IMDManager<T>> m_parent;
+  T m_time_step;
 
 public:
   enum class Type { Unitary, Andersen, Berendsen, Langevin, MTK, PR };
-  Barostat(IMDManager<T> *mdm) : m_parent(mdm) {}
+  Barostat(IMDManager<T> *mdm) : m_parent(mdm) {
+    m_time_step = m_parent->getTimeStep();
+  }
   virtual void applyBarostat() = 0;
 };
 template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>

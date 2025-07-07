@@ -9,7 +9,7 @@
 #include <numbers>
 #include <ranges>
 #include <stdexcept>
-#ifndef TABULATED
+#ifndef WITH_TABULATION
 
 constexpr int chebyshev_nodes_count = 10000;
 #endif
@@ -17,7 +17,7 @@ template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
 class EAMPotential : public Potential<T> {
 
 protected:
-#ifndef TABULATED
+#ifdef WITH_TABULATION
 
   std::vector<T> m_chebyshev_nodes;
   std::vector<T> m_precomputed_pair;
@@ -88,14 +88,18 @@ protected:
   std::vector<Constants> m_constants;
   std::vector<T> m_total_electron_density;
   // std::vector<T> m_bfunc_precomputed;
-  virtual void __loadParameters(int type_idx, int storage_idx,
-                                const std::string &path) noexcept(false) {
+
+  // HINT: this function for EAM not only load parameters but return rcut to
+  // store it afterwards. It'snot clean ,'case function's name does not reflect
+  // fully its behaviour, but whatever
+  T __loadParameters(int type_idx, int storage_idx,
+                     const std::string &path) noexcept(false) {
     using json = nlohmann::json;
     if (!std::filesystem::exists(path))
       throw std::runtime_error(std::string("Provided file ") + path +
                                std::string(" does not exist!"));
     std::ifstream _file(path);
-    json data = json::parse(_file)[std::to_string(type_idx)];
+    json data = json::parse(_file)["EAM"][std::to_string(type_idx)];
     m_constants.at(storage_idx).r_e = data["r_e"].get<T>();
     m_constants.at(storage_idx).f_e = data["f_e"].get<T>();
     m_constants.at(storage_idx).rho_e = data["rho_e"].get<T>();
@@ -118,17 +122,18 @@ protected:
     m_constants.at(storage_idx).omega_s = data["omega_s"].get<T>();
     m_constants.at(storage_idx).etta = data["etta"].get<T>();
     m_constants.at(storage_idx).idx = type_idx;
+    return data["r_cut"].get<T>();
   }
 
   // std::vector<T> m_bfunc_der_precomputed;
-  T calculateElectronDensity(const T &dist, const T &betta, T &r_e,
-                             const T &lambda) const noexcept {
+  T __calculateElectronDensity(const T &dist, const T &betta, T &r_e,
+                               const T &lambda) const noexcept {
     return exp(-betta * (dist / r_e)) / (1 + pow(dist / r_e), 20);
   }
 
-  T calculateElectronDensityDer(const T &precomp_exp, const T &dist,
-                                const T &betta, T &r_e,
-                                const T &lambda) const noexcept {
+  T __calculateElectronDensityDer(const T &precomp_exp, const T &dist,
+                                  const T &betta, T &r_e,
+                                  const T &lambda) const noexcept {
     double ratio = dist / r_e;
     double ratio_kappa = ratio - lambda;
     return (-1. / r_e) * precomp_exp *
@@ -194,24 +199,24 @@ protected:
   T calculatePairHomogen(const T &dist, int type_local_idx) {
     const struct Costants &eam_const = m_constants.at(type_local_idx);
 
-    return eam_const.A * calculateElectronDensity(dist, eam_const.r_e,
-                                                  eam_const.alpha,
-                                                  eam_const.kappa) -
+    return eam_const.A * __calculateElectronDensity(dist, eam_const.r_e,
+                                                    eam_const.alpha,
+                                                    eam_const.kappa) -
            // HINT: here can be used b_precomputed
-           eam_const.B * calculateElectronDensity(dist, eam_const.r_e,
-                                                  eam_const.betta,
-                                                  eam_const.lambda);
+           eam_const.B * __calculateElectronDensity(dist, eam_const.r_e,
+                                                    eam_const.betta,
+                                                    eam_const.lambda);
   }
   T calculatePairHomogenDer(const T &dist, int type_local_idx) {
     const struct Costants &eam_const = m_constants.at(type_local_idx);
     // HINT: here can be used b_precomputed
-    T b_func_der = calculateElectronDensityDer(
-        calculateElectronDensity(dist, eam_const.r_e, eam_const.betta,
-                                 eam_const.lambda),
+    T b_func_der = __calculateElectronDensityDer(
+        __calculateElectronDensity(dist, eam_const.r_e, eam_const.betta,
+                                   eam_const.lambda),
         dist, eam_const.r_e, eam_const.betta, eam_const.lambda);
-    T a_func_der = calculateElectronDensityDer(
-        calculateElectronDensity(dist, eam_const.r_e, eam_const.alpha,
-                                 eam_const.kappa),
+    T a_func_der = __calculateElectronDensityDer(
+        __calculateElectronDensity(dist, eam_const.r_e, eam_const.alpha,
+                                   eam_const.kappa),
         dist, eam_const.r_e, eam_const.betta, eam_const.lambda);
     return eam_const.A * a_func_der - eam_const.B * b_func_der;
   }
@@ -219,7 +224,7 @@ protected:
   virtual T calculatePairPotential(const T &dist) const noexcept = 0;
   virtual T calculatePairPotentialDer(const T &dist) const noexcept = 0;
 
-#ifndef TABULATED
+#ifdef WITH_TABULATION
   virtual void precomputePairPotential(T r_cut) {
 
     m_chebyshev_nodes = std::views::iota(chebyshev_nodes_count) |
@@ -296,12 +301,18 @@ protected:
 
 public:
   virtual ~EAMPotential() = default;
+
+  T calculateElectronDensity(const T &dist, int idx) const override {
+    const struct Constants &eam_ctn = m_constants.at(idx);
+    return exp(-eam_ctn.betta * (dist / eam_ctn.r_e)) /
+           (1 + pow(dist / eam_ctn.r_e), 20);
+  }
 };
 
 template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
 class EAMPotentialPure : public EAMPotential<T> {
 private:
-#ifndef TABULATED
+#ifndef WITH_TABULATION
   virtual void precomputePairPotential(T r_cut) override {
 
     EAMPotential<T>::precomputePairPotential(r_cut);
@@ -317,7 +328,7 @@ private:
 #endif
   virtual T calculatePairPotential(const T &dist) const noexcept override {
 
-#ifdef TABULATED
+#ifdef WITH_TABULATION
     return this->interpolatePairPotential(dist, this->m_constants.at(0).r_cut);
 #else
 
@@ -325,7 +336,7 @@ private:
 #endif
   }
   virtual T calculatePairPotentialDer(const T &dist) const noexcept override {
-#ifdef TABULATED
+#ifdef WITH_TABULATION
     return this->interpolatePairPotentialDer(dist,
                                              this->m_constants.at(0).r_cut);
 #else
@@ -338,7 +349,7 @@ public:
   EAMPotentialPure() { this->m_constants.resize(1); }
   virtual void loadParameters(int f_type, const std::string &path,
                               int s_type) noexcept(false) override {
-    this->__loadParameters(f_type, 0, path);
+    this->m_rcut = this->__loadParameters(f_type, 0, path);
   }
   virtual T computeEnergy(const Particle<T> &p1,
                           const Particle<T> &p2) const noexcept override {
@@ -355,17 +366,17 @@ public:
     this->taperQuinticDer(dist, smooth, der_smooth);
 
     T pair_part = this->calculatePairPotential(dist);
-    T elect_density = this->calculateElectronDensity(
+    T elect_density = this->__calculateElectronDensity(
         dist, eam_const.betta, eam_const.r_e, eam_const.lambda);
-    T embedded_part_der =
-        (this->calculateEmbeddedDer(indx.first, 0) +
-         this->calculateEmbeddedDer(indx.second, 1)) *
-        (this->calculateElectronDensityDer(elect_density, dist, eam_const.betta,
-                                           eam_const.r_e, eam_const.lambda) *
-             smooth +
-         elect_density * der_smooth
+    T embedded_part_der = (this->calculateEmbeddedDer(indx.first, 0) +
+                           this->calculateEmbeddedDer(indx.second, 1)) *
+                          (this->__calculateElectronDensityDer(
+                               elect_density, dist, eam_const.betta,
+                               eam_const.r_e, eam_const.lambda) *
+                               smooth +
+                           elect_density * der_smooth
 
-        );
+                          );
     T pair_part_der =
         this->calculatePairPotentialDer(dist) * smooth + pair_part * der_smooth;
 #else
@@ -373,9 +384,9 @@ public:
     T embedded_part_der =
         (this->calculateEmbeddedDer(indx.first, 0) +
          this->calculateEmbeddedDer(indx.second, 1)) *
-        this->calculateElectronDensityDer(
-            this->calculateElectronDensity(dist, eam_const.betta, eam_const.r_e,
-                                           eam_const.lambda),
+        this->__calculateElectronDensityDer(
+            this->__calculateElectronDensity(dist, eam_const.betta,
+                                             eam_const.r_e, eam_const.lambda),
             dist, eam_const.betta, eam_const.r_e, eam_const.lambda);
     T pair_part_der = this->calculatePairPotentialDer(dist);
 
@@ -390,14 +401,14 @@ private:
   T __calculatePairHeterogen(const T &dist) const noexcept {
     T f_e_first =
           this->m_constants.at(0).f_e *
-          this->calculateElectronDensity(dist, this->m_constants.at(0).betta,
-                                         this->m_constants.at(0).r_e,
-                                         this->m_constants.at(0).lambda),
+          this->__calculateElectronDensity(dist, this->m_constants.at(0).betta,
+                                           this->m_constants.at(0).r_e,
+                                           this->m_constants.at(0).lambda),
       f_e_second =
           this->m_constants.at(1).f_e *
-          this->calculateElectronDensity(dist, this->m_constants.at(1).betta,
-                                         this->m_constants.at(1).r_e,
-                                         this->m_constants.at(1).lambda);
+          this->__calculateElectronDensity(dist, this->m_constants.at(1).betta,
+                                           this->m_constants.at(1).r_e,
+                                           this->m_constants.at(1).lambda);
 
     return 0.5 *
            ((f_e_second / f_e_first) * this->calculatePairHomogen(dist, 0) +
@@ -406,20 +417,20 @@ private:
   T __calculatePairHeterogenDer(const T &dist) const noexcept {
     T f_e_first = this->m_constants.at(0).f_e,
       f_e_second = this->m_constants.at(0).f_e,
-      dens_first = this->calculateElectronDensity(
+      dens_first = this->__calculateElectronDensity(
           dist, this->m_constants.at(0).betta, this->m_constants.at(0).r_e,
           this->m_constants.at(0).lambda),
-      dens_second = this->calculateElectronDensity(
+      dens_second = this->__calculateElectronDensity(
           dist, this->m_constants.at(1).betta, this->m_constants.at(1).r_e,
           this->m_constants.at(1).lambda),
       dens_der_first =
 
-          this->calculateElectronDensityDer(
+          this->__calculateElectronDensityDer(
               dens_first, dist, this->m_constants.at(0).betta,
               this->m_constants.at(0).r_e, this->m_constants.at(0).lambda),
       dens_der_second =
 
-          this->calculateElectronDensityDer(
+          this->__calculateElectronDensityDer(
               dens_second, dist, this->m_constants.at(1).betta,
               this->m_constants.at(1).r_e, this->m_constants.at(1).lambda),
       f_pair_pot_homogen = this->calculatePairHomogen(dist, 0),
@@ -438,7 +449,7 @@ private:
                      dens_first * dens_der_second / dens_second) +
                 dens_der_first / dens_second * s_pair_pot_der_homogen);
   }
-#ifndef TABULATED
+#ifndef WITH_TABULATION
   virtual void precomputePairPotential(T r_cut) override {
 
     EAMPotential<T>::precomputePairPotential(r_cut);
@@ -458,7 +469,7 @@ private:
   // TODO: check this r_cut here, or utilize it, because cannot be 2 different
   // r_cuts
   virtual T calculatePairPotential(const T &dist) const noexcept override {
-#ifdef TABULATED
+#ifdef WITH_TABULATION
     return this->interpolatePairPotential(dist, this->m_constants.at(0).r_cut);
 #else
 
@@ -466,7 +477,7 @@ private:
 #endif
   }
   virtual T calculatePairPotentialDer(const T &dist) const noexcept override {
-#ifdef TABULATED
+#ifdef WITH_TABULATION
     return this->interpolatePairPotentialDer(dist,
                                              this->m_constants.at(0).r_cut);
 #else
@@ -479,8 +490,11 @@ public:
   virtual void
   loadParameters(int f_type, int s_type,
                  const std::string &path) noexcept(false) override {
-    this->__loadParameters(f_type, 0, path);
-    this->__loadParameters(s_type, 1, path);
+    T r_cut_first = this->__loadParameters(f_type, 0, path);
+    T r_cut_second = this->__loadParameters(s_type, 1, path);
+
+    // TODO: think about it
+    this->m_rcut = (r_cut_first + r_cut_second) / 2;
   }
   virtual T computeEnergy(const Particle<T> &p1,
                           const Particle<T> &p2) const noexcept override {
@@ -497,21 +511,21 @@ public:
     this->taperQuinticDer(dist, smooth, der_smooth);
 
     T pair_part = this->calculatePairPotential(dist);
-    T elect_density_f = this->calculateElectronDensity(
+    T elect_density_f = this->__calculateElectronDensity(
           dist, eam_const_ftype.betta, eam_const_ftype.r_e,
           eam_const_ftype.lambda),
-      elect_density_s = this->calculateElectronDensity(
+      elect_density_s = this->__calculateElectronDensity(
           dist, eam_const_stype.betta, eam_const_stype.r_e,
           eam_const_stype.lambda);
 
     T embedded_part_der = (this->calculateEmbeddedDer(indx.first, 0) *
-                               (this->calculateElectronDensityDer(
+                               (this->__calculateElectronDensityDer(
                                     elect_density_s, dist, eam_const_f.betta,
                                     eam_const_f.r_e, eam_const_f.lambda) *
                                     smooth +
                                 elect_density_f * der_smooth) +
                            this->calculateEmbeddedDer(indx.second, 1)) *
-                          (this->calculateElectronDensityDer(
+                          (this->__calculateElectronDensityDer(
                                elect_density_f, dist, eam_const_f.betta,
                                eam_const_f.r_e, eam_const_f.lambda) *
                                smooth +
@@ -523,18 +537,18 @@ public:
 #else
     T embedded_part_der =
         (this->calculateEmbeddedDer(indx.first, 0) *
-             this->calculateElectronDensityDer(
-                 this->calculateElectronDensity(dist, eam_const_stype.betta,
-                                                eam_const_stype.r_e,
-                                                eam_const_stype.lambda),
+             this->__calculateElectronDensityDer(
+                 this->__calculateElectronDensity(dist, eam_const_stype.betta,
+                                                  eam_const_stype.r_e,
+                                                  eam_const_stype.lambda),
                  dist, eam_const_stype.betta, eam_const_stype.r_e,
                  eam_const_stype.lambda)
 
          + this->calculateEmbeddedDer(indx.second, 1) *
-               this->calculateElectronDensityDer(
-                   this->calculateElectronDensity(dist, eam_const_ftype.betta,
-                                                  eam_const_ftype.r_e,
-                                                  eam_const_ftype.lambda),
+               this->__calculateElectronDensityDer(
+                   this->__calculateElectronDensity(dist, eam_const_ftype.betta,
+                                                    eam_const_ftype.r_e,
+                                                    eam_const_ftype.lambda),
                    dist, eam_const_ftype.betta, eam_const_ftype.r_e,
                    eam_const_ftype.lambda)
 
