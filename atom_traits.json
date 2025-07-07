@@ -1,0 +1,40 @@
+{
+  "metals": {
+    "0": {
+      "mass": 9.746e+01,
+      "lattice_traits": [
+        3.5196e-01,
+        3.5196e-01,
+        3.5196e-01
+      ],
+      "energy_unit": 1.60218e+02,
+      "temper": 2.7315,
+      "pressure": 1.01325e+05,
+      "density": 8.902e+03,
+      "name": "nickel"
+    },
+    "1": {
+      "mass": 1.0552e+02,
+      "lattice_traits": [
+        3.615e-01,
+        3.615e-01,
+        3.615e-01
+      ],
+      "energy_unit": 1.60218e+02,
+      "temper": 2.7315,
+      "pressure": 1.01325e+05,
+      "density": 8.96e+03,
+      "name": "cuprum"
+    }
+  },
+  "gas": {
+    "0": {
+      "mass": 6.63e+01,
+      "name": "argon"
+    },
+    "1": {
+      "mass": 2.28e+02,
+      "name": "xenon"
+    }
+  }
+}
