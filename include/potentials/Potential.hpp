@@ -10,8 +10,12 @@
 template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
 class Potential {
 
+protected:
+  T m_rcut;
+
 public:
   enum class Type { LJ, EAM_ALLOY, EAM_PURE };
+  Potential() = default;
   virtual ~Potential() = default;
   virtual void loadParameters(int f_type, const std::string &path,
                               int s_type = -1) noexcept(false) = 0;
@@ -21,10 +25,7 @@ public:
   computeForce(const Particle<T> &p1, const Particle<T> &p2,
                const std::pair<int, int> &indx = {}) const noexcept = 0;
 
-  // HINT: necessary for Potentials EAM-like where before forces can be
-  // calculated electron density stuff should be calculated
-  virtual void initStep(const std::vector<Particle<T>> &particles,
-                        std::unique_ptr<VerletList<T>> verlet_list) = 0;
+  T getCutoffRadius() const noexcept { return m_rcut; }
 };
 
 template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>,
