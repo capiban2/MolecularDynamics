@@ -1,6 +1,7 @@
 #pragma once
 #include <cmath>
 #include <type_traits>
+#include <unordered_map>
 #pragma pack(push, 1)
 template <typename T> struct Vector3x {
   T x, y, z;
@@ -44,11 +45,16 @@ using Vector3ld = Vector3x<long double>;
 using Vector3i = Vector3x<int>;
 
 template <typename T> struct Particle {
-  int m_type, m_id;
+
+  // HINT: global represent type family
+  //  0 - metal
+  //  1- gas
+  //  local for indexing in that families
+  int m_type_id_global, m_type_id_local;
   Vector3x<T> pos, vel, force;
   Particle(int _type, int _id)
-      : m_type(_type), m_id(_id), pos({0., 0., 0.}), vel({0., 0., 0.}),
-        force({0., 0., 0.}) {}
+      : m_type_id_global(_type), m_type_id_local(_id), pos({0., 0., 0.}),
+        vel({0., 0., 0.}), force({0., 0., 0.}) {}
 };
 
 template <typename T, typename P>
@@ -139,4 +145,40 @@ struct ProcSubGrid3D {
     return pos.x > lo.x && pos.x < hi.x && pos.y > lo.y && pos.y < hi.y &&
            pos.z > lo.z && pos.z < hi.z;
   }
+};
+
+template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
+struct SystemTraits {
+  Vector3x<T> m_centr_mass_rad;
+  Vector3x<T> m_centr_mass_vel;
+  Vector3x<T> m_angular_momentum;
+  Vector3x<T> diagonal_pressure_tensor;
+  Vector3x<T> non_diagonal_pressure_tensor;
+
+  /*
+  due to storage potentials in vector, types, with whose coefficients and data
+  they will work, will be changed to next_counter suppose for types 6 and 7
+  setPotential has been called, then, type 6 gets index 0 and type 7 gets
+  index 1.
+  then, when system needs to be dumped in loggs, initial types's
+  indexes have to be restored
+  */
+  std::unordered_map<int, int> m_types_mapping;
+  T m_average_lattice;
+  T m_cohesive_energy;
+  T m_temperature;
+  T m_kinetic_energy;
+  T m_potential_energy;
+  T m_volume;
+  T m_pressure;
+  T m_system_mass;
+  T m_mass_of_the_free;
+
+  T m_r_cut;
+  T m_r_on;
+  T m_timestep;
+  Vector3i cluster_structure;
+  int type_of_atomic_constaints;
+  // TODO: for sake of accuracy, let it be double[3]
+  double gravity[3];
 };
