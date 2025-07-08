@@ -12,6 +12,21 @@ template <typename T> struct Vector3x {
   // Parameterized constructor
   Vector3x(T x_, T y_, T z_) : x(x_), y(y_), z(z_) {}
 
+  // Copy constructor
+  Vector3x(const Vector3x &other) = default;
+
+  // Copy assignment operator
+  Vector3x &operator=(const Vector3x &other) = default;
+
+  // Move constructor
+  Vector3x(Vector3x &&other) noexcept = default;
+
+  // Move assignment operator
+  Vector3x &operator=(Vector3x &&other) noexcept = default;
+
+  // Destructor
+  ~Vector3x() = default;
+
   template <typename P> explicit Vector3x(const Vector3x<P> &l) {
     x = static_cast<T>(l.x);
     y = static_cast<T>(l.y);
