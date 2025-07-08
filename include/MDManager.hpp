@@ -39,9 +39,7 @@ class MDManager : public IMDManager<T> {
 #endif
   std::string m_path_to_config;
 
-  void calculateInternalForces();
-
-  void __calculateTotalElectronDensity() {
+  void prepareEAMIteration() {
     std::fill(m_electron_density.begin(), m_electron_density.end(), 0.);
 #ifdef OPENMP_ENABLED
 #pragma omp parallel
@@ -81,6 +79,17 @@ class MDManager : public IMDManager<T> {
 #endif
           m_electron_density[ngh_idx] += contrib_in_me;
       }
+    }
+    // HINT: два раза делать, сначала рттай потом динамик каст ест больше чем
+    // сразу динамик каст, но при наличии в системе максимум 5 максимум
+    // потенциалов, и частоте раз в итерацию - потерпим
+    for (Potential<T> *pot : m_potentials) {
+      if (pot->rtti() == PotentialType::LJ)
+        continue;
+
+      // TODO: it is safe as long as there aint nobody except EAM and LJ
+      dynamic_cast<EAMPotential<T> *>(pot)->setElectronDensity(
+          m_electron_density);
     }
   }
   void redistributeParticles(std::vector<Particle<T>> &all_particles) {
@@ -254,6 +263,44 @@ public:
     m_thermostat = createThermostat<T>(type, std::forward<Args>(args)...);
   }
 
+  void calculateInternalForces() {
+    prepareEAMIteration();
+
+    std::transform(m_particles.begin(), m_particles.end(),
+                   [](Particle<T> &part) { part.force = 0; });
+
+#ifdef OPENMP_ENABLED
+#pragma omp parallel
+#endif
+    for (int t_ = 0; t_ != m_ghost_index_first; ++t_) {
+      Particle<T> &particle = m_particles.at(t_);
+
+      int f_type = particle.m_type_id_local;
+      const std::vector<int> &nghbrs = m_verlet_list->getNeighbors(t_);
+
+      for (int ngh_idx : nghbrs) {
+        Particle<T> &nghb = m_particles.at(ngh_idx);
+        // HINT: here should be distance with PBC blended
+        int ngh_type = nghb.m_type_id_local;
+        T dist = length(particle.pos - nghb.pos);
+        if (dist > m_cutoff_radiuses[f_type][ngh_type])
+          continue;
+
+        auto pair_force = m_potentials[f_type][ngh_type]->computeForce(
+            particle, nghb, std::make_pair(t_, ngh_idx));
+
+        // HINT: here can be changed to omp critical,but i dunno
+#ifdef OPENMP_ENABLED
+#pragma omp atomic
+#endif
+        particle.force += pair_force;
+#ifdef OPENMP_ENABLED
+#pragma omp atomic
+#endif
+        nghb.force -= pair_force;
+      }
+    }
+  }
   // template <typename Integrator> void setIntegrator();
 
   // void setPBC(const Vector3x<bool> &pbc, const Vector3d &lo,
