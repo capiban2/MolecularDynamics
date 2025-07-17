@@ -72,6 +72,7 @@ private:
   void array2spline() {}
 
 public:
+  virtual T getCutoffRadius() const noexcept override { return m_max_r; }
   // HINT: these types should be unique
   LJPotential(const std::vector<std::pair<int, int>> &types,
               const std::string &path)
@@ -88,6 +89,7 @@ public:
     file2array();
   }
   ~LJPotential() = default;
+#if 0
   virtual void loadParameters(int f_type, const std::string &path,
                               int s_type) noexcept(false) override {
 
@@ -108,9 +110,6 @@ public:
 #endif
   }
 
-  virtual void initStep(const std::vector<Particle<T>> &particles,
-                        std::unique_ptr<VerletList<T>> verlet_list) override {}
-
   virtual T computeEnergy(const Particle<T> &p1,
                           const Particle<T> &p2) const noexcept override {
 
@@ -125,6 +124,8 @@ public:
     return __calculateLJ(dist);
 #endif
   }
+#endif
+#if 0
   virtual Vector3x<T>
   computeForce(const Particle<T> &p1, const Particle<T> &p2,
                const std::pair<int, int> &indx = {}) const noexcept override {
@@ -137,15 +138,13 @@ public:
     return (p1.pos - p2.pos) * -__calculateLJDer(dist);
 #endif
   }
+#endif
   virtual enum PotentialType rtti() override { return PotentialType::LJ; }
   virtual void
   computeBulkForces(const std::vector<MD::PairInteraction<T>> &_interactions,
                     std::vector<T> &_f_x, std::vector<T> &_f_y,
-                    std::vector<T> &_f_z,
-                    const std::vector<int> types) override {
-
-    // TODO: initialize that
-    int first_ghost;
+                    std::vector<T> &_f_z, const std::vector<int> types,
+                    int first_ghost) override {
 
     T x, y, z, delx, dely, delz, dist, fpair;
     int i_, j_;
@@ -189,10 +188,8 @@ public:
 }
 
 virtual void computeBulkForces(const VerletList<T> &neigh_list,
-                               ParticleData<T> &_data) override {
-
-  // TODO: initialize that
-  int first_ghost;
+                               ParticleData<T> &_data,
+                               int first_ghost) override {
 
   T *fx = _data.force_x, *fy = _data.force_y, *fz = _data.force_z;
   const std::vector<int> &types = _data.m_type_id;
