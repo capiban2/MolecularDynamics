@@ -38,7 +38,6 @@ public:
   // temperature(kinetic temperature) to work with it afterwards
   virtual void initThermostat(ParticleData<T> &_data,
                               const std::vector<double> &mass) override {
-#if 0
     int first_ghost = this->m_mdmanager->getFirstGhostIndex();
 
     Vector3x<T> vcom = this->m_mdmanager->getThermostatGroupVelCom(
@@ -46,20 +45,20 @@ public:
     this->m_full_step_kinetic =
         this->calculateKinetic(_data.vel_x.data(), _data.vel_y.data(),
                                _data.vel_z.data(), vcom, mass, first_ghost);
-#endif
   }
+
   // HINT: for local thermostat; for calculating current system's
   // temperature(kinetic temperature) to work with it afterwards
+  // HINT: init this though it is not necessary for NH, to be able to extract
+  // temperature in step 0
   virtual void initThermostat(ParticleData<T> &_data,
                               const std::vector<int> &_idx,
                               const std::vector<double> &mass) override {
-#if 0
     Vector3x<T> vcom = this->m_mdmanager->getThermostatGroupVelCom(
         this->m_thermostat_group_id);
     this->m_full_step_kinetic =
         this->calculateKinetic(_data.vel_x.data(), _data.vel_y.data(),
                                _data.vel_z.data(), vcom, mass, _idx);
-#endif
   }
   virtual void applyThermostat(ParticleData<T> &_data,
                                const std::vector<double> &mass,
