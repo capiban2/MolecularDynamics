@@ -1,34 +1,40 @@
 #pragma once
 
 #include "Utility.hpp"
-#include "VerletList.hpp"
 #include <VerletList.hpp>
 #include <array>
 #include <cmath>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <types/PairInteraction.hpp>
+
+enum class PotentialType { LJ, EAM };
+
 template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
 class Potential {
 
-protected:
-  T m_rcut;
-
 public:
-  enum class Type { LJ, EAM_ALLOY, EAM_PURE };
   Potential() = default;
   virtual ~Potential() = default;
-  virtual void loadParameters(int f_type, const std::string &path,
-                              int s_type = -1) noexcept(false) = 0;
-  virtual T computeEnergy(const Particle<T> &p1,
-                          const Particle<T> &p2) const noexcept = 0;
-  virtual Vector3x<T>
-  computeForce(const Particle<T> &p1, const Particle<T> &p2,
-               const std::pair<int, int> &indx = {}) const noexcept = 0;
 
-  T getCutoffRadius() const noexcept { return m_rcut; }
+  virtual T getCutoffRadius() const noexcept = 0;
 
-  // HINT: defined here just for not doing dynamic cast every time, dunno
-  virtual T calculateElectronDensity(const T &dist, int local_idx) const {}
+  virtual std::string getDescription() const noexcept = 0;
+
+  virtual void configure() = 0;
+
+  // HINT: for multipotential modelling
+  virtual void
+  computeBulkForces(const std::vector<MD::PairInteraction<T>> &_interactions,
+                    std::vector<T> &_f_x, std::vector<T> &_f_y,
+                    std::vector<T> &_f_z, const std::vector<int> types,
+                    int _first_ghost_idx) = 0;
+
+  // HINT: for monopotential modelling
+  virtual void computeBulkForces(const VerletList<T> &t, ParticleData<T> &_data,
+                                 int _first_ghost_idx) = 0;
+
+  virtual enum PotentialType rtti() = 0;
 };
 
 template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>,
