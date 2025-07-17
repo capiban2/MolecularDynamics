@@ -296,6 +296,8 @@ public:
   EAMInterpolated(const std::vector<std::string> &intepolation_files)
       : m_interp_files(intepolation_files) {}
 
+  virtual T getCutoffRadius() const noexcept override { return m_max_cutoff; }
+
   // HINT: for dumping into logs and then using it like the leverage to
   // recreate computation
   std::string getDescription() const noexcept override;
@@ -357,15 +359,14 @@ public:
   virtual void
   computeBulkForces(const std::vector<MD::PairInteraction<T>> &_interactions,
                     std::vector<T> &_f_x, std::vector<T> &_f_y,
-                    std::vector<T> &_f_z,
-                    const std::vector<int> types) override {
+                    std::vector<T> &_f_z, const std::vector<int> types,
+                    int first_ghost) override {
 
     T *coeff;
     T x, y, z, delx, dely, delz, dist, p, rhotp, rhojp, z2p, z2, psip, fpair;
     // TODO: define it later; this value can be vastly greater than actual atoms
     // , that interact via EAM, but for simplicity of indexing will use global
     // first_ghost
-    int first_ghost;
     m_current_rho.resize(first_ghost);
     m_dembed_energy.resize(first_ghost);
     std::fill(m_current_rho.begin(), m_current_rho.end(), 0.);
@@ -480,15 +481,13 @@ public:
 }
 
 virtual void
-computeBulkForces(const VerletList<T> &neigh_list,
-                  ParticleData<T> &_data) override {
+computeBulkForces(const VerletList<T> &neigh_list, ParticleData<T> &_data,
+                  int first_ghost) override {
 
   T *fx = _data.force_x, *fy = _data.force_y, *fz = _data.force_z;
   const std::vector<int> &types = _data.m_type_id;
   T *coeff;
   T x, y, z, delx, dely, delz, dist, p, rhotp, rhojp, z2p, z2, psip, fpair;
-  // TODO: define it later
-  int first_ghost;
 
   int total = _data.force_x.size();
   m_current_rho.resize(first_ghost);
