@@ -80,19 +80,9 @@ public:
   }
   // HINT: becauase dynamic target temperature has been supported, then, it may
   // return different target temperatures, that depend on current timestemp
-  virtual T getTargetTemperature() const noexcept;
-  virtual T getHalfStepTemperature() const noexcept;
-  virtual T getFullStepTemperature() const noexcept;
-
-  // HINT: for global thermostat
-  virtual void applyThermostat(ParticleData<T> &_data,
-                               const std::vector<double> &mass,
-                               bool half_step) = 0;
-  // HINT: for local thermostat
-  virtual void applyThermostat(ParticleData<T> &_data,
-                               const std::vector<int> &_idx,
-                               const std::vector<double> &mass,
-                               bool half_step) = 0;
+  virtual T getTargetTemperature() const noexcept = 0;
+  virtual T getHalfStepTemperature() const noexcept = 0;
+  virtual T getFullStepTemperature() const noexcept = 0;
 
   // HINT: for global thermostat; for calculating current system's
   // temperature(kinetic temperature) to work with it afterwards
@@ -103,25 +93,15 @@ public:
   virtual void initThermostat(ParticleData<T> &_data,
                               const std::vector<int> &_idx,
                               const std::vector<double> &mass) = 0;
-};
-template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
-class IdentityThermostat final : public Thermostat<T> {
-
-public:
-  IdentityThermostat(IMDManager<T> *mdm,
-                     const std::vector<std::pair<int, T>> &_preserve_temp,
-                     int group_id)
-      : Thermostat<T>(mdm, _preserve_temp, group_id) {}
-
-  virtual void applyThermostat(ParticleData<T> &_data, bool to_half_velocity) {}
-
+  // HINT: for global thermostat
+  virtual void applyThermostat(ParticleData<T> &_data,
+                               const std::vector<double> &mass,
+                               bool half_step) = 0;
+  // HINT: for local thermostat
   virtual void applyThermostat(ParticleData<T> &_data,
                                const std::vector<int> &_idx,
-                               bool to_half_velocity) override {}
-
-  virtual T getTargetTemperature() const noexcept override {
-    return this->m_parent->getCurrentTemperature();
-  }
+                               const std::vector<double> &mass,
+                               bool half_step) = 0;
 };
 
 template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>,
