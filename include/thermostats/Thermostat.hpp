@@ -56,7 +56,7 @@ increase to some big arbitary value.
       dx = velx[idx[t_]] - vcom.x;
       dy = vely[idx[t_]] - vcom.y;
       dz = velz[idx[t_]] - vcom.z;
-      kinetic += mass[t_] * 0.5 * (dx * dx + dy * dy + dz * dz);
+      kinetic += mass[idx[t_]] * 0.5 * (dx * dx + dy * dy + dz * dz);
     }
     return kinetic;
   }
