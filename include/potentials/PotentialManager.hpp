@@ -72,7 +72,7 @@ public:
     // HINT: mono-potential case
     if (m_potential_groups.size() == 1) {
       m_potential_groups[0].potential->computeBulkForces(
-          _data.force_x, _data.force_y, _data.force_z, _data.m_type_id);
+          neigh_list, _data, m_mdmanager->getFirstGhostIndex());
       return;
     }
 
@@ -80,7 +80,63 @@ public:
 
     // HINT: if first iteration after particles redistribution
     if (m_mdmanager->isFirstAfterRebuild) {
+      for (auto &group : m_potential_groups)
+        group.interactions.clear();
+      for (int i = 0; i < _data.force_x.size(); ++i) {
+        int type_i = _data.m_type_id[i];
+        for (int j : neigh_list.neighbours(i)) {
+          if (j <= i)
+            continue;
+          int type_j = _data.m_type_id[j];
+          int group_idx = m_t2t_map[type_i][type_j];
+          if (group_idx < 0)
+            continue;
+          auto dx = _data.pos_x[i] - _data.pos_x[j];
+          auto dy = _data.pos_y[i] - _data.pos_y[j];
+          auto dz = _data.pos_z[i] - _data.pos_z[j];
+          auto r2 = dx * dx + dy * dy + dz * dz;
+          m_potential_groups[group_idx].interactions.emplace_back(i, j, r2, dx,
+                                                                  dy, dz);
+        }
+      }
+      // HINT: refresh interactions with new positions and stuff
+    } else {
+#ifndef OPENMP_ENABLED
+      for (auto &group : m_potential_groups) {
+        for (auto &pair : group.interactions) {
+          auto dx = _data.pos_x[pair.i] - _data.pos_x[pair.j];
+          auto dy = _data.pos_y[pair.i] - _data.pos_y[pair.j];
+          auto dz = _data.pos_z[pair.i] - _data.pos_z[pair.j];
+          pair.dx = dx;
+          pair.dy = dy;
+          pair.dz = dz;
+          pair.r2 = dx * dx + dy * dy + dz * dz;
+        }
+      }
+#else
+#pragma omp parallel for
+      for (int t_ = 0; t_ != m_potential_groups.size(); ++t_) {
+        auto &inter = m_potential_groups[t_].interactions;
+        for (int j_ = 0; j_ != inter.size(); ++j_) {
+          auto dx = _data.pos_x[inter[j_].i] - _data.pos_x[inter[j_].j];
+          auto dy = _data.pos_y[inter[j_].i] - _data.pos_y[inter[j_].j];
+          auto dz = _data.pos_z[inter[j_].i] - _data.pos_z[inter[j_].j];
+          inter[j_].dx = dx;
+          inter[j_].dy = dy;
+          inter[j_].dz = dz;
+          inter[j_].r2 = dx * dx + dy * dy + dz * dz;
+        }
+      }
+#endif
     }
+
+    // HINT: not use parallel there, because it is possible that the same
+    // particle interact with different kinds of material, hence, will be used
+    // in a few calculateForces calls, where, it should have been accumulated
+    for (auto &group : m_potential_groups)
+      group.potential->computeBulkForces(
+          group.interactions, _data.force_x, _data.force_y, _data.force_z,
+          _data.m_type_id, m_mdmanager->getFirstGhostIndex());
   }
   void setup() { buildTypeMapping(); }
 };
